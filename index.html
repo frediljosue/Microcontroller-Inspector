@@ -308,7 +308,7 @@ $('loadModels').onclick = async () => {
 /* ── camera ── */
 const video = $('video'), overlay = $('overlay');
 let stream = null, live = false, inflight = false, lastCheck = 0, current = null, history = [], tokens = {in: 0, out: 0}, checks = 0;
-let refThumb = null, prevThumb = null, steadySince = 0;
+let refThumb = null, prevThumb = null, steadySince = 0, changeSince = 0, motionLimit = 3.2; const motionHist = [];
 async function listCams(){
   try { const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
     const sel = $('cam'), cur = sel.value; sel.innerHTML = '<option value="">Default</option>' + devs.map((d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || 'Camera ' + (i + 1))}</option>`).join(''); sel.value = cur; } catch(e){}
@@ -340,7 +340,7 @@ function updateButtons(){
   $('status').style.display = stream ? '' : 'none';
 }
 $('liveBtn').onclick = () => { live = !live; if (live){ refThumb = null; lastCheck = 0; } setPill(); updateButtons(); };
-$('nowBtn').onclick = () => runCheck('manual');
+$('nowBtn').onclick = () => { limitHits = 0; runCheck('manual'); };
 
 /* ── change + steadiness detection on tiny grayscale thumbnails ── */
 const tc = document.createElement('canvas'); tc.width = 40; tc.height = 30; const tctx = tc.getContext('2d', {willReadFrequently: true});
@@ -351,8 +351,14 @@ function diff(a, b){ if (!a || !b) return 255; let s = 0; for (let i = 0; i < a.
 setInterval(() => {
   if (!stream || video.readyState < 2) return;
   const now = performance.now(), g = thumb(), motion = diff(g, prevThumb), change = diff(g, refThumb); prevThumb = g;
-  if (motion > 3.2) steadySince = now;
-  const steady = now - steadySince > 900, every = +$('every').value * 1000, wait = Math.max(0, every - (now - lastCheck));
+  // learn how "jittery" this camera normally is, so a hand-held phone still counts as steady
+  motionHist.push(motion); if (motionHist.length > 24) motionHist.shift();
+  const quiet = [...motionHist].sort((a, b) => a - b)[Math.floor(motionHist.length * 0.25)] || 0;
+  motionLimit = Math.max(3.2, quiet * 1.6 + 1.5);
+  if (motion > motionLimit) steadySince = now;
+  if (change >= 7 && !changeSince) changeSince = now; if (change < 7) changeSince = 0;
+  const waitedTooLong = changeSince && now - changeSince > 6000;   // never wait more than 6 s for "steady"
+  const steady = now - steadySince > 900 || waitedTooLong, every = +$('every').value * 1000, wait = Math.max(0, every - (now - lastCheck));
   $('ringArc').setAttribute('stroke-dashoffset', (50.3 * (live ? wait / every : 1)).toFixed(1));
   let st;
   if (inflight) st = 'Checking…';
@@ -415,7 +421,7 @@ async function callAI(img, text){
       body: JSON.stringify({model, temperature: 0.2, max_tokens: 1400, messages: [{role: 'user', content: [{type: 'text', text}, {type: 'image_url', image_url: {url: img}}]}]})});
     if (res.ok) return {text: data.choices?.[0]?.message?.content || '', tin: data.usage?.prompt_tokens, tout: data.usage?.completion_tokens};
   }
-  const m = data?.error?.message || data?.error || res.statusText, err = new Error(`${res.status}: ${m}`); err.status = res.status; throw err;
+  const m = data?.error?.message || (typeof data?.error === 'string' ? data.error : '') || res.statusText || 'no details', err = new Error(String(m)); err.status = res.status; err.data = data; throw err;
 }
 
 /* ── what to do when a free tier says "slow down" (HTTP 429) ──
@@ -429,7 +435,7 @@ function onRateLimit(provider, hits){
 async function runCheck(kind){
   if (inflight || !stream) return;
   if (P().needsKey && !$('key').value.trim()){ showErr('Paste your API key first (see the steps on the left).'); return; }
-  inflight = true; updateButtons(); lastCheck = performance.now(); refThumb = thumb();
+  inflight = true; updateButtons(); lastCheck = performance.now(); refThumb = thumb(); changeSince = 0;
   const img = await getFrame(), prev = history[0];
   try {
     const out = await callAI(img, prompt(prev)); limitHits = 0;
@@ -446,10 +452,23 @@ async function runCheck(kind){
   } catch(e){
     const id = prov();
     if (e.status === 401 || e.status === 403) showErr(id === 'ollama' ? 'Ollama refused the request. Set OLLAMA_ORIGINS="*" and restart Ollama (see the steps on the left).' : 'The service rejected your API key. Check that you pasted all of it.');
-    else if (e.status === 429 || e.status === 503 || e.status === 529){ const wait = onRateLimit(id, ++limitHits); lastCheck = performance.now() + wait * 1000; showErr(`The ${id === 'gemini' ? 'Gemini' : id === 'groq' ? 'Groq' : ''} free limit or a busy server was hit. Pausing ${wait} s. If it keeps happening, you may have used today's free quota; try another service or a longer interval.`); }
+    else if (e.status === 429 || e.status === 503 || e.status === 529 || e.status === 500){
+      const said = e.message, perDay = /per.?day|PerDay|daily/i.test(said), zero = /limit:\s*0\b/.test(said);
+      const hinted = +((JSON.stringify(e.data || {}).match(/"retryDelay"\s*:\s*"(\d+)/) || [])[1] || (said.match(/retry in ([\d.]+)\s*s/i) || [])[1] || 0);
+      const wait = Math.max(Math.ceil(hinted), onRateLimit(id, ++limitHits)); lastCheck = performance.now() + wait * 1000;
+      const why = e.status === 503 || e.status === 529 || e.status === 500 ? 'The AI service is overloaded right now. That is on their side, not yours.'
+        : zero ? `This model has no free quota on your key. Change Model to another one (try <b>gemini-3.5-flash-lite</b>), or press <b>List</b> to see your options.`
+        : perDay ? 'You have used today\'s free requests for this model. Switch to another model or service, or wait until tomorrow.'
+        : 'Too many requests per minute for the free tier. Set "Check at most every" to 10 s or 20 s.';
+      const list = P().models, at = list.indexOf($('model').value.trim());
+      if ((zero || perDay) && at >= 0 && at < list.length - 1){        // auto-switch to the next free model
+        const next = list[at + 1]; $('model').value = next; LS.set('model.' + id, next); lastCheck = performance.now() - 1e9; limitHits = 0;
+        showErr(`${zero ? 'No free quota' : 'Daily free limit reached'} on ${list[at]}. Switched to <b>${next}</b> and trying again.`, `${e.status} · ${said}`);
+      } else showErr(`${why} Retrying in ${wait} s.`, `${e.status} · ${said}`);
+    }
     else if (e.status === 404) showErr(`Model "${$('model').value}" was not found. Press List and pick one from your account.`);
     else if (e.message === 'Failed to fetch') showErr(id === 'ollama' ? 'Can\'t reach Ollama. Make sure it is running, and that OLLAMA_ORIGINS is set (see the steps on the left).' : 'Couldn\'t reach the service. Check your internet connection.');
-    else showErr(e.message);
+    else showErr('The AI service returned an error.', `${e.status || ''} · ${e.message}`);
   }
   finally { inflight = false; updateButtons(); }
 }
@@ -472,8 +491,9 @@ function alertIfNeeded(r, prev){
    alias: name the AI used -> key, so a corrected part keeps matching on later checks */
 const norm = t => String(t || '').toLowerCase().replace(/[^a-z0-9ωΩ.]+/g, ' ').trim();
 let parts = new Map(), alias = new Map(), checkNo = 0;
-try { const sv = JSON.parse(LS.get('parts') || 'null'); if (sv){ parts = new Map(sv.parts); alias = new Map(sv.alias); } } catch(e){}
-const saveParts = () => LS.set('parts', JSON.stringify({parts: [...parts].map(([k, v]) => [k, {...v, box: null, seen: -1}]), alias: [...alias]}));
+if (/^\{"parts"/.test($('parts').value)){ $('parts').value = ''; LS.set('parts', null); }   // clean up the old collision
+try { const sv = JSON.parse(LS.get('partsState') || 'null'); if (sv){ parts = new Map(sv.parts); alias = new Map(sv.alias); } } catch(e){}
+const saveParts = () => LS.set('partsState', JSON.stringify({parts: [...parts].map(([k, v]) => [k, {...v, box: null, seen: -1}]), alias: [...alias]}));
 
 /* Decides whether a detected part needs you to confirm it.
    p = {name, type, confidence, alternatives}. Returns true to show a question card. */
@@ -672,7 +692,8 @@ $('saveUrl').onclick = () => { let u = $('onlineUrl').value.trim(); if (!/^https
 $('camBtn').onclick = () => stream ? stopCam() : startCam();
 
 /* ── errors ── */
-function showErr(m){ let el = $('errBox'); if (!el){ el = document.createElement('div'); el.id = 'errBox'; el.className = 'err'; $('report').before(el); } el.textContent = m; }
+function showErr(m, detail){ let el = $('errBox'); if (!el){ el = document.createElement('div'); el.id = 'errBox'; el.className = 'err'; $('report').before(el); }
+  el.innerHTML = (/<b>/.test(m) ? m : esc(m)) + (detail ? `<details style="margin-top:6px"><summary style="cursor:pointer;opacity:.8">What the service said</summary><div style="font-family:var(--mono);font-size:11px;margin-top:4px;word-break:break-word">${esc(String(detail).slice(0, 600))}</div></details>` : ''); }
 function clearErr(){ $('errBox')?.remove(); }
 loadProvider(true); listCams(); renderParts();
 </script>
