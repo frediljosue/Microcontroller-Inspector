@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wiring Inspector · Live</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0f0e;--panel:#121816;--panel2:#18201d;--panel3:#1f2925;--line:#26322d;--line2:#33413b;--text:#e7efe9;--muted:#8a9c94;--accent:#3ddc97;--accent2:#27b67a;--warn:#f5b942;--bad:#ff6161;--info:#5ab8ff;
+--mono:'JetBrains Mono',ui-monospace,monospace;--sans:'Inter',system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.45;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#131b18,#0f1513)}
+header h1{font-size:16px;margin:0}
+header small{display:block;color:var(--muted);font-size:11.5px}
+.sp{flex:1}
+.pill{font-family:var(--mono);font-size:11.5px;padding:4px 10px;border-radius:99px;border:1px solid var(--line);color:var(--muted);display:flex;gap:7px;align-items:center}
+.pill i{width:8px;height:8px;border-radius:50%;background:#5d6e66}
+.pill.live{color:#ff9b9b;border-color:#5a2222;background:#2a1212}.pill.live i{background:#ff4d4d;box-shadow:0 0 10px #ff4d4d;animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.35}}
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line2);background:var(--panel2);color:var(--text);padding:8px 13px;border-radius:9px;font:600 13px var(--sans);cursor:pointer}
+.btn:hover{border-color:var(--accent2)}
+.btn.go{background:linear-gradient(180deg,#4ae6a2,#2fc785);color:#062114;border-color:#3ddc97}
+.btn.stop{background:linear-gradient(180deg,#ff7676,#e94b4b);color:#2a0606;border-color:#ff6161}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.sm{padding:5px 10px;font-size:12px}
+.app{flex:1;display:grid;grid-template-columns:330px 1fr 380px;min-height:0}
+aside{background:var(--panel);overflow:auto;padding:14px}
+aside.left{border-right:1px solid var(--line)} aside.right{border-left:1px solid var(--line)}
+.h{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:1.4px;color:var(--accent);margin:14px 0 8px;font-weight:600}
+.h:first-child{margin-top:0}
+label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+input[type=text],input[type=password],select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:8px 10px;font:inherit;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent2)}
+textarea{min-height:90px;resize:vertical;font-family:var(--mono);font-size:12.5px}
+.chk{display:flex;gap:7px;align-items:center;color:var(--text);font-size:12.5px}
+.row{display:flex;gap:8px;align-items:center}
+.row>*{flex:1}
+.note{font-size:12px;color:var(--muted)}
+.keynote{font-size:11.5px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-top:8px}
+.stage{position:relative;background:#050706;min-width:0;display:flex;flex-direction:column}
+.vwrap{position:relative;flex:1;min-height:0}
+video,#overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+#overlay{pointer-events:none}
+.empty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--muted);padding:30px}
+.empty b{color:var(--text)}
+.hud{position:absolute;left:14px;top:14px;right:14px;display:flex;gap:10px;align-items:flex-start;pointer-events:none}
+.verdict{pointer-events:auto;display:flex;gap:12px;align-items:center;padding:10px 14px;border-radius:12px;border:1px solid var(--line2);background:#0b0f0edd;backdrop-filter:blur(6px);max-width:560px}
+.verdict .dot{width:14px;height:14px;border-radius:50%;flex:none;box-shadow:0 0 14px currentColor}
+.verdict b{font-size:15px}
+.v-ok{border-color:#245c43}.v-ok .dot{background:var(--accent);color:var(--accent)}
+.v-warning{border-color:#5c4a22}.v-warning .dot{background:var(--warn);color:var(--warn)}
+.v-danger{border-color:#6b2a2a;background:#2a1010e6}.v-danger .dot{background:var(--bad);color:var(--bad)}
+.v-unclear{border-color:#2a4a66}.v-unclear .dot{background:var(--info);color:var(--info)}
+.status{margin-left:auto;pointer-events:auto;font-family:var(--mono);font-size:12px;padding:7px 11px;border-radius:10px;background:#0b0f0edd;border:1px solid var(--line2);display:flex;gap:9px;align-items:center;white-space:nowrap}
+.ring{width:18px;height:18px}
+.bar{display:flex;gap:10px;align-items:center;padding:10px 14px;border-top:1px solid var(--line);background:var(--panel)}
+.issue{border-left:3px solid var(--line2);padding:8px 11px;margin:8px 0;background:var(--panel2);border-radius:0 9px 9px 0}
+.issue.critical{border-left-color:var(--bad)}.issue.warning{border-left-color:var(--warn)}.issue.tip{border-left-color:var(--info)}
+.issue .t{display:flex;gap:7px;align-items:center;font-weight:600;font-size:13px}
+.issue .w{font-size:12px;color:var(--muted);margin-top:3px}
+.issue .f{font-size:12.5px;color:var(--accent);margin-top:4px}
+.sev{font-family:var(--mono);font-size:10px;text-transform:uppercase;padding:1px 6px;border-radius:5px}
+.sev.critical{background:#4a1818;color:#ff9b9b}.sev.warning{background:#4a3a14;color:#ffd27a}.sev.tip{background:#13324a;color:#9cd3ff}
+.num{font-family:var(--mono);font-size:10.5px;background:#ffd84d;color:#1a1400;border-radius:4px;padding:0 5px}
+ul.l{margin:4px 0;padding-left:18px;font-size:12.5px} ul.l li{margin:3px 0}
+.chg{font-size:12.5px;padding:7px 10px;border-radius:9px;background:#11231b;border:1px solid #1f4a36;margin:6px 0}
+.hist{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.hist button{border:1px solid var(--line);background:#000;border-radius:8px;padding:0;overflow:hidden;cursor:pointer;position:relative;aspect-ratio:4/3}
+.hist img{width:100%;height:100%;object-fit:cover;display:block}
+.hist span{position:absolute;left:4px;bottom:4px;width:9px;height:9px;border-radius:50%}
+.hist button.sel{border-color:var(--accent)}
+.meter{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.pq{border:1px solid #6b5520;background:#211a0b;border-radius:11px;padding:10px 11px;margin:8px 0;cursor:pointer}
+.pq.flash{box-shadow:0 0 0 2px #ffd84d}
+.pq .q{font-size:13px}.pq .q b{color:#ffd84d}
+.pq .why{font-size:11.5px;color:var(--muted);margin:3px 0 7px}
+.pq .opts{display:flex;flex-wrap:wrap;gap:5px}
+.pq .opts button{border:1px solid var(--line2);background:var(--panel2);color:var(--text);border-radius:7px;padding:4px 9px;font:600 12px var(--sans);cursor:pointer}
+.pq .opts button.yes{background:#1d4a35;border-color:#2e7a55;color:#bff5dc}
+.pq .opts button.no{color:var(--muted)}
+.pq .other{display:none;gap:5px;margin-top:6px}.pq .other input{flex:1;padding:5px 8px;font-size:12.5px}
+.pq.typing .other{display:flex}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line2);background:var(--panel2);border-radius:99px;padding:3px 9px 3px 4px;font-size:12px;cursor:pointer}
+.chip .pn{font-family:var(--mono);font-size:10px;background:#5ad1e6;color:#04161a;border-radius:99px;padding:1px 5px}
+.chip.you{border-color:#2e7a55}.chip.you .pn{background:var(--accent)}
+.chip.stale{opacity:.45}
+.chip small{color:var(--muted);font-size:10.5px}
+.modal{position:fixed;inset:0;background:#000a;display:none;place-items:center;z-index:50;padding:16px}
+.modal .card{background:var(--panel);border:1px solid var(--line2);border-radius:16px;padding:20px;width:min(440px,100%);text-align:center}
+.modal h2{margin:0 0 4px;font-size:17px}
+#qr{background:#fff;border-radius:12px;padding:12px;display:inline-block;margin:14px 0 8px;line-height:0}
+#qr svg{width:240px;height:240px}
+.link{font-family:var(--mono);font-size:11px;color:var(--muted);word-break:break-all}
+.pstat{font-size:13px;margin-top:10px;color:var(--accent)}
+/* phone-camera mode */
+#phoneUI{display:none}
+body.phone-mode>header, body.phone-mode>.app{display:none}
+body.phone-mode #phoneUI{display:block;position:fixed;inset:0;background:#000}
+#phoneUI video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#pTop{position:absolute;top:0;left:0;right:0;padding:12px;display:flex;flex-direction:column;gap:8px;z-index:2}
+#pVerdict{display:none;border-radius:12px;padding:10px 12px;background:#0b0f0ee6;border:2px solid var(--line2);font-size:14px}
+#pVerdict b{display:block;font-size:16px}
+#pBar{position:absolute;bottom:0;left:0;right:0;padding:14px 12px calc(14px + env(safe-area-inset-bottom));display:flex;gap:8px;justify-content:center;background:linear-gradient(transparent,#000c);z-index:2}
+#pBar .btn{font-size:15px;padding:12px 16px}
+#pMsg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:30px;color:var(--muted);font-size:15px}
+#pMsg b{color:var(--text);font-size:19px;display:block;margin-bottom:6px}
+.err{color:#ff9b9b;font-size:12.5px;background:#2a1212;border:1px solid #5a2222;border-radius:9px;padding:8px 10px;margin-top:8px}
+@media(max-width:1150px){.app{grid-template-columns:1fr}.stage{min-height:56vh}}
+@media(max-width:760px){
+  header{padding:8px 12px} header small{display:none}
+  .app{display:flex;flex-direction:column;overflow:auto}
+  .stage{order:1;position:sticky;top:0;z-index:5;min-height:0;height:52vh;flex:none;border-bottom:1px solid var(--line)}
+  aside.right{order:2;border-left:0;overflow:visible} aside.left{order:3;border-right:0;overflow:visible}
+  .hud{left:8px;top:8px;right:8px;flex-direction:column;gap:6px} .status{margin-left:0;align-self:flex-end}
+  .verdict{padding:7px 10px} .verdict b{font-size:13.5px} #vs{font-size:12px!important}
+  .bar{position:absolute;left:0;right:0;bottom:0;padding:8px;gap:6px;background:#0b0f0ecc;backdrop-filter:blur(6px);border-top:0}
+  .bar .btn{padding:8px 10px;font-size:12.5px} .meter{display:none}
+  .vwrap{height:100%} .hist{grid-template-columns:repeat(4,1fr)}
+  input,select,textarea{font-size:16px!important}
+}
+</style>
+</head>
+<body>
+<header>
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3ddc97" stroke-width="1.8" stroke-linecap="round"><path d="M3 7h3l2-3h8l2 3h3v13H3z"/><circle cx="12" cy="13" r="4"/></svg>
+  <div><h1>Wiring Inspector · Live</h1><small>Your webcam watches the build, and an AI checks it whenever something changes. Free options included.</small></div>
+  <span class="sp"></span>
+  <span class="pill" id="pill"><i></i><span>Camera off</span></span>
+</header>
+
+<div class="app">
+  <aside class="left">
+    <div class="h">1 · AI that looks at the camera</div>
+    <label for="provider">Service</label>
+    <select id="provider">
+      <option value="gemini">Google Gemini · FREE key, best free option</option>
+      <option value="groq">Groq · FREE key, very fast</option>
+      <option value="ollama">Ollama · FREE, runs on your laptop, no key</option>
+      <option value="custom">Other OpenAI-compatible (OpenRouter…)</option>
+      <option value="anthropic">Anthropic Claude · paid credits</option>
+    </select>
+    <div class="keynote" id="howto"></div>
+    <div id="urlRow"><label for="baseUrl">Server address</label><input type="text" id="baseUrl"></div>
+    <div id="keyRow">
+      <label for="key" id="keyLabel">API key</label>
+      <input type="password" id="key" autocomplete="off">
+      <label class="chk"><input type="checkbox" id="remember"> Remember on this computer</label>
+    </div>
+    <label for="model">Model</label>
+    <div class="row" style="gap:6px"><input type="text" id="model" list="modelList" style="flex:4"><button class="btn sm" id="loadModels" style="flex:1" title="Ask the service which models your key can use">List</button></div>
+    <datalist id="modelList"></datalist>
+    <div class="note" id="modelNote" style="margin-top:4px"></div>
+
+    <div class="h">2 · What are you wiring?</div>
+    <label for="board">Board</label><select id="board"></select>
+    <label for="parts">Extra parts info, optional</label><input type="text" id="parts" placeholder="Parts are detected automatically. Add anything they can't see.">
+    <label for="intent">Connections you intend to make</label>
+    <textarea id="intent" placeholder="Servo signal → D9&#10;Servo + → 5V&#10;Servo − → GND"></textarea>
+
+    <div class="h">3 · Live settings</div>
+    <div class="row">
+      <div><label for="every">Check at most every</label><select id="every"><option value="3">3 s</option><option value="5" selected>5 s</option><option value="10">10 s</option><option value="20">20 s</option></select></div>
+      <div><label for="cam">Camera</label><select id="cam"><option value="">Default</option></select></div>
+    </div>
+    <label class="chk" style="margin-top:10px"><input type="checkbox" id="onlyChange" checked> Only check when the board changes</label>
+    <label class="chk"><input type="checkbox" id="steady" checked> Wait until my hands are out of the way</label>
+    <label class="chk"><input type="checkbox" id="voice"> Say danger warnings out loud</label>
+    <label class="chk"><input type="checkbox" id="boxes" checked> Mark problems on the video</label>
+    <label class="chk"><input type="checkbox" id="detect" checked> Auto-detect parts</label>
+    <label class="chk"><input type="checkbox" id="partBoxes" checked> Label detected parts on the video</label>
+    <label for="askBelow">Ask me to confirm a part when the AI is less than</label>
+    <select id="askBelow"><option value="0.6">60% sure</option><option value="0.75" selected>75% sure</option><option value="0.9">90% sure</option><option value="1.01">Always ask</option></select>
+    <div class="note" style="margin-top:10px">Tip: mount the camera straight above the breadboard, with good light and no glare. On a phone, a cheap phone stand or gooseneck clamp works well, and the back camera is used by default.</div>
+  </aside>
+
+  <section class="stage">
+    <div class="vwrap" id="vwrap">
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <div class="empty" id="empty"><div><b>Camera is off.</b><br>Press <b>Start camera</b>, then pick an AI service on the left.<br><span class="note">Your browser will ask for camera permission.</span></div></div>
+      <div class="hud">
+        <div class="verdict v-unclear" id="verdict" style="display:none"><span class="dot"></span><div><b id="vt">—</b><div id="vs" style="font-size:13px;opacity:.9"></div></div></div>
+        <div class="status" id="status" style="display:none"><svg class="ring" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="none" stroke="#26322d" stroke-width="3"/><circle id="ringArc" cx="10" cy="10" r="8" fill="none" stroke="#3ddc97" stroke-width="3" stroke-dasharray="50.3" stroke-dashoffset="50.3" transform="rotate(-90 10 10)"/></svg><span id="st">idle</span></div>
+      </div>
+    </div>
+    <div class="bar">
+      <button class="btn" id="camBtn">Start camera</button>
+      <button class="btn" id="phoneBtn" title="Scan a QR code with your phone and use it as a wireless camera">📱 Use phone camera</button>
+      <button class="btn go" id="liveBtn" disabled>● Go live</button>
+      <button class="btn" id="nowBtn" disabled>Check now</button>
+      <span class="sp"></span>
+      <span class="meter" id="meter">0 checks · 0 tokens</span>
+    </div>
+  </section>
+
+  <aside class="right">
+    <div class="h" style="display:flex;align-items:center">Parts in view<span class="sp"></span><button class="btn sm" id="clearParts" style="padding:2px 8px;font-size:11px">Reset</button></div>
+    <div id="partsQ"></div>
+    <div class="chips" id="partsList"><span class="note">Parts appear here after the first check.</span></div>
+    <div class="h">Latest check</div>
+    <div id="report" class="note">No checks yet. Go live and the AI will look whenever the board changes.</div>
+    <div class="h">History</div>
+    <div class="hist" id="hist"></div>
+    <div class="note" style="margin-top:8px">Click a thumbnail to see that check again.</div>
+  </aside>
+</div>
+
+<div class="modal" id="phoneModal"><div class="card">
+  <h2>Use your phone as the camera</h2>
+  <div class="note">Scan with your phone's camera app. Keep this page open; the phone's video will appear here.</div>
+  <div id="needUrl" style="display:none;text-align:left;margin-top:12px">
+    <label for="onlineUrl">Where is this page online?</label>
+    <input type="text" id="onlineUrl" placeholder="https://your-site.netlify.app/">
+    <div class="note" style="margin-top:6px">Phones only allow the camera on a secure <b>https://</b> page, so the phone opens the online copy of this file. Put it online once (Netlify Drop or GitHub Pages), paste the address here, and it's remembered.</div>
+    <button class="btn go sm" id="saveUrl" style="margin-top:8px">Make QR code</button>
+  </div>
+  <div id="qrBox" style="display:none"><div id="qr"></div><div class="link" id="qrLink"></div></div>
+  <div class="pstat" id="pstat">Starting…</div>
+  <div class="note" style="margin-top:8px">Phone and laptop work best on the same Wi-Fi. If the school Wi-Fi blocks it, turn on your phone's hotspot and connect the laptop to it.</div>
+  <button class="btn sm" id="phoneCancel" style="margin-top:12px">Close</button>
+</div></div>
+
+<div id="phoneUI">
+  <video id="pVideo" playsinline muted autoplay></video>
+  <div id="pMsg"><div><b>Phone camera for Wiring Inspector</b>Point the back camera straight down at your breadboard.<br>Tap <b style="display:inline;font-size:inherit">Start camera</b> below.</div></div>
+  <div id="pTop"><span class="pill" id="pPill" style="align-self:flex-start;background:#0b0f0ee6"><i></i><span>Not connected</span></span><div id="pVerdict"></div></div>
+  <div id="pBar"><button class="btn go" id="pStart">Start camera</button><button class="btn" id="pFlip" style="display:none">Flip</button><button class="btn" id="pLight" style="display:none">Light</button><button class="btn" id="pStop" style="display:none">Stop</button></div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ── Board knowledge (same boards as the Practice Lab) ── */
+const BOARDS = {
+  'Arduino Uno R3': {logic:5, tol:'yes', i2c:'A4 SDA, A5 SCL', spi:'D11 MOSI, D12 MISO, D13 SCK', notes:'D0/D1 are USB serial. PWM only on ~3,5,6,9,10,11. 20 mA per pin recommended.'},
+  'Arduino Nano': {logic:5, tol:'yes', i2c:'A4 SDA, A5 SCL', spi:'D11/D12/D13', notes:'A6/A7 analog-only. Must straddle the breadboard center gap.'},
+  'Arduino Mega 2560': {logic:5, tol:'yes', i2c:'D20 SDA, D21 SCL', spi:'D50 MISO, D51 MOSI, D52 SCK, D53 SS', notes:'I2C and SPI pins differ from the Uno.'},
+  'ESP32 DevKit': {logic:3.3, tol:'NO', i2c:'GPIO21 SDA, GPIO22 SCL', spi:'23 MOSI, 19 MISO, 18 SCK', notes:'GPIO6-11 are flash, never use. 34-39 input-only. GPIO12 must not be HIGH at boot. 5V sensor outputs need dividers.'},
+  'ESP8266 NodeMCU': {logic:3.3, tol:'NO', i2c:'D2 SDA, D1 SCL', spi:'D5 SCK, D6 MISO, D7 MOSI', notes:'Only A0 is analog. D3/D4/D8 are boot pins; D8 must be LOW at boot. LED_BUILTIN is active-LOW.'},
+  'Seeed XIAO ESP32-C3': {logic:3.3, tol:'NO', i2c:'D4 SDA, D5 SCL', spi:'D8 SCK, D9 MISO, D10 MOSI', notes:'No user LED. D8/D9 are boot pins.'},
+  'Raspberry Pi Pico': {logic:3.3, tol:'NO', i2c:'GP4 SDA, GP5 SCL', spi:'GP18 SCK, GP19 TX, GP16 RX', notes:'Analog only on GP26-28. Physical pin numbers differ from GP numbers.'},
+  'STM32 Blue Pill': {logic:3.3, tol:'only FT pins', i2c:'PB7 SDA, PB6 SCL', spi:'PA5 SCK, PA6 MISO, PA7 MOSI', notes:'PA0-7, PB0, PB1, PB5, PC13-15 are NOT 5V tolerant. BOOT0 jumper must be 0.'},
+  'Other / not listed': {logic:'?', tol:'?', i2c:'?', spi:'?', notes:'Name the board in the connections box.'}
+};
+Object.keys(BOARDS).forEach(n => $('board').add(new Option(n, n)));
+
+/* ── AI services ── */
+const PROVIDERS = {
+  gemini: {needsKey: true, keyHint: 'AIza…', models: ['gemini-3.8-flash','gemini-3.6-flash','gemini-3.5-flash-lite'], every: 10,
+    howto: '<b>Free, no credit card.</b> 1) Go to <b>aistudio.google.com</b> and sign in with Google. 2) Click <b>Get API key → Create API key</b>. 3) Paste it below. The free tier has a daily request limit, and Google may use free-tier images to improve its products.'},
+  groq: {needsKey: true, keyHint: 'gsk_…', models: ['qwen/qwen3.8-27b'], every: 10,
+    howto: '<b>Free, no credit card.</b> 1) Go to <b>console.groq.com</b> and sign up. 2) Open <b>API Keys → Create API Key</b>. 3) Paste it below. Very fast, with a daily request limit. Weaker than Gemini at reading small breadboard details.'},
+  ollama: {needsKey: false, url: 'http://localhost:11434', models: ['qwen3-vl:8b','gemma3:4b','llama3.2-vision'], every: 5,
+    howto: '<b>Free forever, works offline, and nothing leaves your laptop.</b> 1) Install from <b>ollama.com</b>. 2) In a terminal, run <code>ollama pull qwen3-vl:8b</code>, or <code>gemma3:4b</code> on a weaker laptop. 3) Allow this page to talk to Ollama: on Windows run <code>setx OLLAMA_ORIGINS "*"</code>, then quit Ollama from the tray and reopen it. Needs about 8–16 GB RAM and is slower without a GPU. Local models miss more than the cloud ones.'},
+  custom: {needsKey: true, keyHint: 'sk-or-…', url: 'https://openrouter.ai/api/v1', models: [], every: 10,
+    howto: 'Any service that speaks the OpenAI chat format with image input. For <b>OpenRouter</b>, get a key at <b>openrouter.ai/keys</b>, press <b>List</b>, and pick a vision model whose name ends in <code>:free</code>.'},
+  anthropic: {needsKey: true, keyHint: 'sk-ant-…', models: ['claude-haiku-5-5','claude-sonnet-5-5','claude-opus-5-5'], every: 5,
+    howto: '<b>Paid:</b> uses prepaid credits from <b>platform.claude.com</b>, separate from a claude.ai subscription. It is the most accurate option.'}
+};
+const prov = () => $('provider').value, P = () => PROVIDERS[prov()];
+
+/* ── settings persistence (keys stored per service, only if "remember") ── */
+const LS = {get(k){ try { return localStorage.getItem('wil.' + k); } catch(e){ return null; } }, set(k, v){ try { v == null ? localStorage.removeItem('wil.' + k) : localStorage.setItem('wil.' + k, v); } catch(e){} }};
+['provider','board','parts','intent','every','askBelow'].forEach(k => { const v = LS.get(k); if (v != null) $(k).value = v; $(k).addEventListener('change', () => LS.set(k, $(k).value)); });
+['onlyChange','steady','voice','boxes','detect','partBoxes'].forEach(k => { const v = LS.get(k); if (v != null) $(k).checked = v === '1'; $(k).addEventListener('change', () => LS.set(k, $(k).checked ? '1' : '0')); });
+function loadProvider(first){
+  const p = P(), id = prov();
+  $('howto').innerHTML = p.howto;
+  $('keyRow').style.display = p.needsKey ? '' : 'none';
+  $('urlRow').style.display = p.url ? '' : 'none';
+  $('baseUrl').value = LS.get('url.' + id) || p.url || '';
+  $('key').placeholder = p.keyHint || '';
+  const k = LS.get('key.' + id); $('key').value = k || ''; $('remember').checked = !!k;
+  $('model').value = LS.get('model.' + id) || p.models[0] || '';
+  $('modelList').innerHTML = p.models.map(m => `<option value="${esc(m)}">`).join('');
+  $('modelNote').textContent = 'Model names change over time. Press List to see what your account can use.';
+  if (!first && !LS.get('every')) $('every').value = String(p.every);
+  updateButtons();
+}
+$('provider').addEventListener('change', () => loadProvider(false));
+$('remember').onchange = () => LS.set('key.' + prov(), $('remember').checked ? $('key').value : null);
+$('key').oninput = () => { if ($('remember').checked) LS.set('key.' + prov(), $('key').value); updateButtons(); };
+$('model').addEventListener('input', () => { LS.set('model.' + prov(), $('model').value.trim()); updateButtons(); });
+$('baseUrl').addEventListener('change', () => LS.set('url.' + prov(), $('baseUrl').value.trim()));
+const base = () => $('baseUrl').value.trim().replace(/\/+$/, '');
+
+/* ── "List" button: ask the service which models exist ── */
+$('loadModels').onclick = async () => {
+  const id = prov(), key = $('key').value.trim(); $('modelNote').textContent = 'Asking the service…';
+  try {
+    let names = [];
+    if (id === 'gemini'){ const d = await (await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=' + encodeURIComponent(key))).json(); if (d.error) throw new Error(d.error.message);
+      names = (d.models || []).filter(m => (m.supportedGenerationMethods || []).includes('generateContent')).map(m => m.name.replace('models/', '')).filter(n => /gemini/.test(n) && !/image|tts|embed|audio|live|transcribe|translate/.test(n)); }
+    else if (id === 'ollama'){ const d = await (await fetch(base() + '/api/tags')).json(); names = (d.models || []).map(m => m.name); if (!names.length) throw new Error('No models downloaded yet. Run "ollama pull qwen3-vl:8b" in a terminal.'); }
+    else if (id === 'anthropic'){ const d = await (await fetch('https://api.anthropic.com/v1/models', {headers: {'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true'}})).json(); if (d.error) throw new Error(d.error.message); names = (d.data || []).map(m => m.id); }
+    else { const url = id === 'groq' ? 'https://api.groq.com/openai/v1/models' : base() + '/models'; const d = await (await fetch(url, {headers: key ? {Authorization: 'Bearer ' + key} : {}})).json(); if (d.error) throw new Error(d.error.message || d.error);
+      names = (d.data || []).map(m => m.id); if (id === 'custom' && /openrouter/.test(url)) names = (d.data || []).filter(m => (m.architecture?.input_modalities || []).includes('image')).map(m => m.id).sort((a, b) => b.endsWith(':free') - a.endsWith(':free')); }
+    $('modelList').innerHTML = names.map(m => `<option value="${esc(m)}">`).join('');
+    $('modelNote').textContent = `${names.length} models found. Click the Model box to pick one${id === 'groq' ? ', and choose one that supports images' : ''}.`;
+  } catch(e){ $('modelNote').textContent = 'Could not list models: ' + (e.message === 'Failed to fetch' ? (id === 'ollama' ? 'Ollama is not running, or OLLAMA_ORIGINS is not set (see steps above).' : 'network error.') : e.message); }
+};
+
+/* ── camera ── */
+const video = $('video'), overlay = $('overlay');
+let stream = null, live = false, inflight = false, lastCheck = 0, current = null, history = [], tokens = {in: 0, out: 0}, checks = 0;
+let refThumb = null, prevThumb = null, steadySince = 0;
+async function listCams(){
+  try { const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+    const sel = $('cam'), cur = sel.value; sel.innerHTML = '<option value="">Default</option>' + devs.map((d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || 'Camera ' + (i + 1))}</option>`).join(''); sel.value = cur; } catch(e){}
+}
+async function startCam(){
+  if (!navigator.mediaDevices?.getUserMedia){ showErr('This browser can\'t open the camera from this page. Open the file in Chrome, Edge or Firefox on your laptop.'); return; }
+  try {
+    stopCam();
+    const id = $('cam').value;
+    const stream = await navigator.mediaDevices.getUserMedia({video: id ? {deviceId: {exact: id}, width: {ideal: 1920}, height: {ideal: 1080}} : {facingMode: 'environment', width: {ideal: 1920}, height: {ideal: 1080}}, audio: false});
+    useStream(stream, 'local'); listCams();
+  } catch(e){ showErr(e.name === 'NotAllowedError' ? 'Camera permission was blocked. Allow the camera in the address bar, then press Start camera again.' : 'Couldn\'t open the camera: ' + e.message); }
+}
+function useStream(s, kind){
+  stream = s; phoneSource = kind === 'phone';
+  video.srcObject = s; video.play().catch(() => {});
+  $('empty').style.display = 'none'; $('camBtn').textContent = phoneSource ? 'Disconnect phone' : 'Stop camera';
+  setPill(); updateButtons();
+}
+function stopCam(){
+  if (phoneSource){ try { phoneConn?.open && phoneConn.send({type: 'bye'}); } catch(e){} phoneCall?.close(); phoneCall = null; phoneSource = false; }
+  if (stream){ stream.getTracks().forEach(t => t.stop()); stream = null; } video.srcObject = null; live = false; $('empty').style.display = ''; $('camBtn').textContent = 'Start camera'; setPill(); updateButtons(); drawOverlay(); }
+$('cam').onchange = () => { if (stream) startCam(); };
+function setPill(){ const p = $('pill'); p.className = 'pill' + (live ? ' live' : ''); p.querySelector('span').textContent = (live ? 'LIVE' : stream ? 'Camera on · paused' : 'Camera off') + (phoneSource ? ' · 📱 phone' : ''); }
+function updateButtons(){
+  const ok = !!stream && (!P().needsKey || $('key').value.trim().length > 10) && !!$('model').value.trim();
+  $('liveBtn').disabled = !ok; $('nowBtn').disabled = !ok || inflight;
+  $('liveBtn').className = 'btn ' + (live ? 'stop' : 'go'); $('liveBtn').textContent = live ? '■ Stop live' : '● Go live';
+  $('status').style.display = stream ? '' : 'none';
+}
+$('liveBtn').onclick = () => { live = !live; if (live){ refThumb = null; lastCheck = 0; } setPill(); updateButtons(); };
+$('nowBtn').onclick = () => runCheck('manual');
+
+/* ── change + steadiness detection on tiny grayscale thumbnails ── */
+const tc = document.createElement('canvas'); tc.width = 40; tc.height = 30; const tctx = tc.getContext('2d', {willReadFrequently: true});
+function thumb(){ tctx.drawImage(video, 0, 0, 40, 30); const d = tctx.getImageData(0, 0, 40, 30).data, g = new Float32Array(1200); for (let i = 0; i < 1200; i++) g[i] = d[i*4] * .3 + d[i*4+1] * .59 + d[i*4+2] * .11; return g; }
+function diff(a, b){ if (!a || !b) return 255; let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; }
+
+/* ── main loop ── */
+setInterval(() => {
+  if (!stream || video.readyState < 2) return;
+  const now = performance.now(), g = thumb(), motion = diff(g, prevThumb), change = diff(g, refThumb); prevThumb = g;
+  if (motion > 3.2) steadySince = now;
+  const steady = now - steadySince > 900, every = +$('every').value * 1000, wait = Math.max(0, every - (now - lastCheck));
+  $('ringArc').setAttribute('stroke-dashoffset', (50.3 * (live ? wait / every : 1)).toFixed(1));
+  let st;
+  if (inflight) st = 'Checking…';
+  else if (!live) st = 'paused';
+  else if ($('onlyChange').checked && refThumb && change < 7) st = 'watching · no change';
+  else if ($('steady').checked && !steady) st = 'change seen · waiting for steady view';
+  else if (wait > 0) st = `next check in ${Math.ceil(wait / 1000)} s`;
+  else { st = 'Checking…'; runCheck('live'); }
+  $('st').textContent = st;
+}, 250);
+
+/* ── Claude call ── */
+function frameJpeg(max = 1280){
+  const w = video.videoWidth, h = video.videoHeight, k = Math.min(1, max / Math.max(w, h)), c = document.createElement('canvas');
+  c.width = Math.round(w * k); c.height = Math.round(h * k); c.getContext('2d').drawImage(video, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', .82);
+}
+function prompt(prev){
+  const name = $('board').value, b = BOARDS[name];
+  return `You are a senior electrical and computer engineer doing a LIVE pre-power inspection of a student's microcontroller build from a webcam frame.
+Be precise and honest: only claim what you can actually see. If a wire end is hidden or blurry, say so instead of guessing.
+
+BOARD: ${name} (logic ${b.logic} V, 5 V tolerant: ${b.tol}; I2C ${b.i2c}; SPI ${b.spi}). Notes: ${b.notes}
+${partsForPrompt()}
+INTENDED CONNECTIONS:
+${$('intent').value || '(not given; infer the intent from the image)'}
+${prev ? `PREVIOUS CHECK (${Math.round((Date.now() - prev.at) / 1000)} s ago): verdict "${prev.r.verdict}"; issues: ${(prev.r.issues || []).map(i => i.title).join('; ') || 'none'}.` : 'This is the first check of the session.'}
+
+Priority: 1) anything that could damage hardware (shorts, 5V into a 3.3V pin, reversed polarity, motors/servos on GPIO, LEDs without resistors, bridged rails); 2) mismatches with the intended connections (wrong pin, off-by-one breadboard row); 3) functional problems (no common ground, missing pull-ups, wrong I2C/SPI pins); 4) tips.
+
+Respond with ONLY a JSON object, no markdown fences:
+{"verdict":"ok"|"warning"|"danger"|"unclear","summary":"one or two sentences","safe_to_power":true|false,
+"issues":[{"severity":"critical"|"warning"|"tip","title":"short","where":"what in the image","fix":"concrete action","box":[x0,y0,x1,y1]}],
+"changes":["what changed since the previous check, e.g. 'fixed: LED polarity' or 'new: GND wire unplugged' (empty on first check)"],
+"looks_correct":["verified connections"],"could_not_verify":["unclear things"],"better_photo_tips":""${$('detect').checked ? `,
+"parts_detected":[{"name":"specific identification, e.g. 'HC-SR04 ultrasonic sensor' or '220 Ω resistor (red-red-brown)'","type":"sensor|actuator|display|passive|module|power|ic|wire|board|other","confidence":0.0-1.0,"clue":"what you identified it by: markings, colour bands, pin labels, shape","alternatives":["up to 3 other things it could be, only if confidence < 0.9"],"box":[x0,y0,x1,y1]}]` : ''}}
+"box" is optional: normalized 0-1 image coordinates (left, top, right, bottom) around the problem, only if you can locate it.${$('detect').checked ? `
+PART DETECTION: list every electronic component you can see in parts_detected, including the board itself. Do not list individual jumper wires. "confidence" is how sure you are of the exact identity (model/value), not merely that something is there. Be honest: a blue 4-pin module you cannot read is NOT 0.9. For resistors, read the colour bands; if you can't, say so and lower confidence. Reuse the exact names of confirmed parts below so they can be matched across checks.` : ''}`;
+}
+/* ── one function per service: send (image + prompt), get back {text, tin, tout} ── */
+async function callAI(img, text){
+  const id = prov(), key = $('key').value.trim(), model = $('model').value.trim(), b64 = img.split(',')[1];
+  let res, data;
+  const go = async (url, opt) => { res = await fetch(url, opt); data = await res.json().catch(() => ({})); };
+  if (id === 'anthropic'){
+    await go('https://api.anthropic.com/v1/messages', {method: 'POST', headers: {'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'anthropic-dangerous-direct-browser-access': 'true'},
+      body: JSON.stringify({model, max_tokens: 1400, messages: [{role: 'user', content: [{type: 'image', source: {type: 'base64', media_type: 'image/jpeg', data: b64}}, {type: 'text', text}]}]})});
+    if (res.ok) return {text: (data.content || []).filter(c => c.type === 'text').map(c => c.text).join(''), tin: data.usage?.input_tokens, tout: data.usage?.output_tokens};
+  } else if (id === 'gemini'){
+    await go(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, {method: 'POST', headers: {'content-type': 'application/json'},
+      body: JSON.stringify({contents: [{role: 'user', parts: [{inline_data: {mime_type: 'image/jpeg', data: b64}}, {text}]}], generationConfig: {responseMimeType: 'application/json', maxOutputTokens: 4096, temperature: 0.2}})});
+    if (res.ok){ const c = data.candidates?.[0]; if (!c?.content) throw new Error('Gemini returned no answer' + (c?.finishReason ? ` (${c.finishReason})` : '') + '.');
+      return {text: c.content.parts.filter(p => p.text && !p.thought).map(p => p.text).join(''), tin: data.usageMetadata?.promptTokenCount, tout: (data.usageMetadata?.candidatesTokenCount || 0) + (data.usageMetadata?.thoughtsTokenCount || 0)}; }
+  } else if (id === 'ollama'){
+    await go(base() + '/api/chat', {method: 'POST', headers: {'content-type': 'application/json'},
+      body: JSON.stringify({model, stream: false, format: 'json', options: {temperature: 0.2}, messages: [{role: 'user', content: text, images: [b64]}]})});
+    if (res.ok) return {text: data.message?.content || '', tin: data.prompt_eval_count, tout: data.eval_count};
+  } else { // groq + any OpenAI-compatible service
+    await go((id === 'groq' ? 'https://api.groq.com/openai/v1' : base()) + '/chat/completions', {method: 'POST', headers: {'content-type': 'application/json', Authorization: 'Bearer ' + key},
+      body: JSON.stringify({model, temperature: 0.2, max_tokens: 1400, messages: [{role: 'user', content: [{type: 'text', text}, {type: 'image_url', image_url: {url: img}}]}]})});
+    if (res.ok) return {text: data.choices?.[0]?.message?.content || '', tin: data.usage?.prompt_tokens, tout: data.usage?.completion_tokens};
+  }
+  const m = data?.error?.message || data?.error || res.statusText, err = new Error(`${res.status}: ${m}`); err.status = res.status; throw err;
+}
+
+/* ── what to do when a free tier says "slow down" (HTTP 429) ──
+   Returns how many seconds to pause before the next live check.
+   Free tiers have per-minute AND per-day limits, so we back off harder each time it repeats. */
+let limitHits = 0;
+function onRateLimit(provider, hits){
+  return Math.min(300, 15 * 2 ** (hits - 1));   // 15 s, 30 s, 60 s, 120 s, 240 s, 300 s max
+}
+
+async function runCheck(kind){
+  if (inflight || !stream) return;
+  if (P().needsKey && !$('key').value.trim()){ showErr('Paste your API key first (see the steps on the left).'); return; }
+  inflight = true; updateButtons(); lastCheck = performance.now(); refThumb = thumb();
+  const img = await getFrame(), prev = history[0];
+  try {
+    const out = await callAI(img, prompt(prev)); limitHits = 0;
+    tokens.in += out.tin || 0; tokens.out += out.tout || 0; checks++;
+    $('meter').textContent = `${checks} check${checks === 1 ? '' : 's'} · ${(tokens.in + tokens.out).toLocaleString()} tokens (${tokens.in.toLocaleString()} in / ${tokens.out.toLocaleString()} out)`;
+    const text = out.text;
+    let r; try { r = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)); } catch(e){ r = {verdict: 'unclear', summary: text.slice(0, 300) || 'The model gave an empty answer.', issues: []}; }
+    if (!Array.isArray(r.issues)) r.issues = [];
+    const entry = {r, img, at: Date.now(), kind, model: $('model').value.trim()};
+    if ($('detect').checked) mergeParts(r.parts_detected);
+    alertIfNeeded(r, prev?.r);
+    history.unshift(entry); history = history.slice(0, 24); current = entry;
+    render(); renderParts(); clearErr(); tellPhone(r);
+  } catch(e){
+    const id = prov();
+    if (e.status === 401 || e.status === 403) showErr(id === 'ollama' ? 'Ollama refused the request. Set OLLAMA_ORIGINS="*" and restart Ollama (see the steps on the left).' : 'The service rejected your API key. Check that you pasted all of it.');
+    else if (e.status === 429 || e.status === 503 || e.status === 529){ const wait = onRateLimit(id, ++limitHits); lastCheck = performance.now() + wait * 1000; showErr(`The ${id === 'gemini' ? 'Gemini' : id === 'groq' ? 'Groq' : ''} free limit or a busy server was hit. Pausing ${wait} s. If it keeps happening, you may have used today's free quota; try another service or a longer interval.`); }
+    else if (e.status === 404) showErr(`Model "${$('model').value}" was not found. Press List and pick one from your account.`);
+    else if (e.message === 'Failed to fetch') showErr(id === 'ollama' ? 'Can\'t reach Ollama. Make sure it is running, and that OLLAMA_ORIGINS is set (see the steps on the left).' : 'Couldn\'t reach the service. Check your internet connection.');
+    else showErr(e.message);
+  }
+  finally { inflight = false; updateButtons(); }
+}
+
+/* ── voice alerts ── */
+function alertIfNeeded(r, prev){
+  if (!$('voice').checked || !window.speechSynthesis) return;
+  const crit = (r.issues || []).filter(i => i.severity === 'critical').map(i => i.title), old = new Set((prev?.issues || []).map(i => i.title));
+  const fresh = crit.filter(t => !old.has(t));
+  let say = '';
+  if (r.verdict === 'danger' && prev?.verdict !== 'danger') say = 'Stop. Do not power on. ' + (crit[0] || '');
+  else if (fresh.length) say = 'Warning: ' + fresh[0];
+  else if (r.verdict === 'ok' && prev && prev.verdict !== 'ok') say = 'Looks good now.';
+  if (say){ speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(say)); }
+}
+
+/* ── rendering ── */
+/* ── auto-detected parts ──
+   parts: key -> {name, type, conf, clue, alts, box, status: 'auto'|'pending'|'you'|'ignored', seen}
+   alias: name the AI used -> key, so a corrected part keeps matching on later checks */
+const norm = t => String(t || '').toLowerCase().replace(/[^a-z0-9ωΩ.]+/g, ' ').trim();
+let parts = new Map(), alias = new Map(), checkNo = 0;
+try { const sv = JSON.parse(LS.get('parts') || 'null'); if (sv){ parts = new Map(sv.parts); alias = new Map(sv.alias); } } catch(e){}
+const saveParts = () => LS.set('parts', JSON.stringify({parts: [...parts].map(([k, v]) => [k, {...v, box: null, seen: -1}]), alias: [...alias]}));
+
+/* Decides whether a detected part needs you to confirm it.
+   p = {name, type, confidence, alternatives}. Returns true to show a question card. */
+function needsConfirmation(p){
+  const ask = +$('askBelow').value;
+  return (p.confidence ?? 0) < ask;
+}
+
+function mergeParts(list){
+  checkNo++;
+  for (const p of (Array.isArray(list) ? list : [])){
+    if (!p || !p.name) continue;
+    const k = alias.get(norm(p.name)) || norm(p.name), old = parts.get(k);
+    const conf = Math.max(0, Math.min(1, +p.confidence || 0)), box = Array.isArray(p.box) && p.box.length === 4 && p.box.every(x => typeof x === 'number') ? p.box : null;
+    if (old){
+      Object.assign(old, {box, seen: checkNo, clue: p.clue || old.clue});
+      if (old.status === 'auto' || old.status === 'pending'){ old.conf = conf; old.alts = (p.alternatives || []).slice(0, 3); old.type = p.type || old.type; if (old.status === 'auto' && needsConfirmation({...p, confidence: conf})) old.status = 'pending'; }
+    } else parts.set(k, {name: p.name, type: p.type || 'other', conf, clue: p.clue || '', alts: (p.alternatives || []).filter(Boolean).slice(0, 3), box, seen: checkNo, status: needsConfirmation({...p, confidence: conf}) ? 'pending' : 'auto'});
+  }
+  saveParts();
+}
+function partsForPrompt(){
+  const by = s => [...parts.values()].filter(p => p.status === s);
+  const you = by('you'), auto = by('auto'), ign = by('ignored');
+  let t = `EXTRA PARTS INFO FROM USER: ${$('parts').value || '(none)'}`;
+  if (you.length) t += `\nPARTS CONFIRMED BY THE USER (treat as fact, reuse these exact names): ${you.map(p => p.name + (p.was ? ` (you previously called it "${p.was}")` : '')).join('; ')}`;
+  if (auto.length) t += `\nPARTS YOU IDENTIFIED EARLIER (not yet confirmed): ${auto.map(p => p.name).join('; ')}`;
+  if (ign.length) t += `\nTHE USER SAYS THESE ARE NOT PARTS / IGNORE: ${ign.map(p => p.name).join('; ')}`;
+  return t;
+}
+function answerPart(k, ans){
+  const p = parts.get(k); if (!p) return;
+  if (ans === null){ p.status = 'ignored'; }
+  else { const name = ans.trim(); if (!name) return;
+    if (norm(name) !== norm(p.name)){ alias.set(norm(p.name), k); p.was = p.name; p.name = name; }
+    p.status = 'you'; p.conf = 1; }
+  refThumb = null;               // treat the answer like a change so live mode re-checks soon
+  saveParts(); renderParts();
+}
+function renderParts(){
+  const all = [...parts.entries()], num = new Map(all.filter(([, p]) => p.status !== 'ignored').map(([k], i) => [k, i + 1]));
+  const pend = all.filter(([, p]) => p.status === 'pending');
+  $('partsQ').innerHTML = pend.map(([k, p]) => `<div class="pq" data-k="${esc(k)}">
+      <div class="q"><span class="num">P${num.get(k)}</span> Is this ${/^[aeiou]/i.test(p.name) ? 'an' : 'a'} <b>${esc(p.name)}</b>?</div>
+      <div class="why">${Math.round(p.conf * 100)}% sure${p.clue ? ' · ' + esc(p.clue) : ''}</div>
+      <div class="opts"><button class="yes" data-a="yes">Yes</button>${p.alts.map(a => `<button data-a="alt" data-v="${esc(a)}">${esc(a)}</button>`).join('')}<button data-a="other">Something else…</button><button class="no" data-a="ignore">Not a part</button></div>
+      <div class="other"><input type="text" placeholder="What is it? e.g. DHT11 sensor"><button class="btn sm" data-a="save">Save</button></div></div>`).join('');
+  const shown = all.filter(([, p]) => p.status === 'auto' || p.status === 'you');
+  $('partsList').innerHTML = shown.length ? shown.map(([k, p]) => `<span class="chip ${p.status === 'you' ? 'you' : ''} ${p.seen !== checkNo ? 'stale' : ''}" data-k="${esc(k)}" title="${esc(p.clue || '')}${p.seen !== checkNo ? ' · not in the latest view' : ''} · click to change">
+      <span class="pn">P${num.get(k)}</span>${esc(p.name)} <small>${p.status === 'you' ? '✓ you' : Math.round(p.conf * 100) + '%'}</small></span>`).join('')
+    : (pend.length ? '' : `<span class="note">${$('detect').checked ? 'Parts appear here after the first check.' : 'Auto-detect is off.'}</span>`);
+  drawOverlay();
+}
+$('partsQ').addEventListener('click', ev => {
+  const card = ev.target.closest('.pq'); if (!card) return; const k = card.dataset.k, b = ev.target.closest('[data-a]');
+  if (!b){ flashPart(k); return; }
+  const a = b.dataset.a;
+  if (a === 'yes') answerPart(k, parts.get(k).name);
+  else if (a === 'alt') answerPart(k, b.dataset.v);
+  else if (a === 'ignore') answerPart(k, null);
+  else if (a === 'other'){ card.classList.add('typing'); card.querySelector('input').focus(); }
+  else if (a === 'save') answerPart(k, card.querySelector('input').value);
+});
+$('partsQ').addEventListener('keydown', ev => { if (ev.key === 'Enter' && ev.target.matches('.pq input')) answerPart(ev.target.closest('.pq').dataset.k, ev.target.value); });
+$('partsList').addEventListener('click', ev => { const c = ev.target.closest('.chip'); if (!c) return; const p = parts.get(c.dataset.k); p.status = 'pending'; if (!p.alts.length && p.was) p.alts = [p.was]; renderParts(); });
+$('clearParts').onclick = () => { parts.clear(); alias.clear(); saveParts(); renderParts(); };
+['detect','partBoxes'].forEach(id => $(id).addEventListener('change', renderParts));
+let flashKey = null, flashUntil = 0;
+function flashPart(k){ flashKey = k; flashUntil = performance.now() + 1500; drawOverlay(); setTimeout(drawOverlay, 1550); }
+
+const VT = {ok: 'Looks good', warning: 'Check before powering', danger: 'Do NOT power on', unclear: 'Need a clearer view'};
+function render(){
+  const e = current; if (!e) return;
+  const r = e.r, v = VT[r.verdict] ? r.verdict : 'unclear';
+  $('verdict').style.display = ''; $('verdict').className = 'verdict v-' + v;
+  $('vt').textContent = VT[v] + (r.safe_to_power === false && v !== 'danger' ? ' · not safe to power yet' : '');
+  $('vs').textContent = r.summary || '';
+  const iss = r.issues || [];
+  $('report').innerHTML = `<div class="note" style="margin-bottom:6px">${new Date(e.at).toLocaleTimeString()} · ${e === history[0] ? 'latest' : 'from history'}</div>
+    ${(r.changes || []).filter(Boolean).map(c => `<div class="chg">${esc(c)}</div>`).join('')}
+    ${iss.map((i, n) => { const s = ['critical','warning','tip'].includes(i.severity) ? i.severity : 'tip'; return `<div class="issue ${s}"><div class="t">${i.box ? `<span class="num">${n + 1}</span>` : ''}<span class="sev ${s}">${s}</span>${esc(i.title)}</div>${i.where ? `<div class="w">${esc(i.where)}</div>` : ''}${i.fix ? `<div class="f">Fix → ${esc(i.fix)}</div>` : ''}</div>`; }).join('') || '<div class="chg">No issues found in this view.</div>'}
+    ${r.looks_correct?.length ? `<div class="h">Verified</div><ul class="l">${r.looks_correct.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+    ${r.could_not_verify?.length ? `<div class="h">Couldn't verify</div><ul class="l">${r.could_not_verify.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+    ${r.better_photo_tips ? `<div class="h">Camera tip</div><div class="note">${esc(r.better_photo_tips)}</div>` : ''}
+    <div class="note" style="margin-top:12px">AI visual check, not a guarantee. Confirm with a multimeter before powering anything expensive.</div>`;
+  const col = {ok: '#3ddc97', warning: '#f5b942', danger: '#ff6161', unclear: '#5ab8ff'};
+  $('hist').innerHTML = history.map((h, i) => `<button data-i="${i}" class="${h === current ? 'sel' : ''}" title="${new Date(h.at).toLocaleTimeString()} · ${esc(VT[h.r.verdict] || '')}"><img src="${h.img}" alt="Check ${i + 1}"><span style="background:${col[h.r.verdict] || col.unclear}"></span></button>`).join('');
+  drawOverlay();
+}
+$('hist').onclick = ev => { const b = ev.target.closest('[data-i]'); if (!b) return; current = history[+b.dataset.i]; render(); };
+function drawOverlay(){
+  const r = $('vwrap').getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  overlay.width = r.width * dpr; overlay.height = r.height * dpr;
+  const g = overlay.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, r.width, r.height);
+  if (!stream || !video.videoWidth) return;
+  const k = Math.min(r.width / video.videoWidth, r.height / video.videoHeight), vw = video.videoWidth * k, vh = video.videoHeight * k, ox = (r.width - vw) / 2, oy = (r.height - vh) / 2;
+  if ($('partBoxes').checked && $('detect').checked){
+    let n = 0; g.font = '600 12px Inter, sans-serif';
+    for (const [key, p] of parts){
+      if (p.status === 'ignored') continue; n++;
+      const fl = key === flashKey && performance.now() < flashUntil;
+      if (!p.box || (p.seen !== checkNo && !fl)) continue;
+      const b = p.box, x = ox + Math.min(b[0], b[2]) * vw, y = oy + Math.min(b[1], b[3]) * vh, w = Math.abs(b[2] - b[0]) * vw, h = Math.abs(b[3] - b[1]) * vh;
+      const c = p.status === 'pending' ? '#ffd84d' : p.status === 'you' ? '#3ddc97' : '#5ad1e6';
+      g.lineWidth = fl ? 4 : 1.5; g.strokeStyle = c; g.setLineDash(p.status === 'pending' ? [4, 4] : []); g.strokeRect(x, y, w, h); g.setLineDash([]);
+      const label = `P${n} ${p.name}${p.status === 'pending' ? ' ?' : ''}`, tw = Math.min(g.measureText(label).width + 10, Math.max(60, w + 40));
+      g.fillStyle = c; g.fillRect(x, y + h, tw, 18); g.fillStyle = '#081210'; g.save(); g.beginPath(); g.rect(x, y + h, tw, 18); g.clip(); g.fillText(label, x + 5, y + h + 13); g.restore();
+    }
+  }
+  if (!current || !$('boxes').checked) return;
+  (current.r.issues || []).forEach((i, n) => {
+    const b = i.box; if (!Array.isArray(b) || b.length !== 4 || b.some(x => typeof x !== 'number')) return;
+    const c = i.severity === 'critical' ? '#ff6161' : i.severity === 'warning' ? '#f5b942' : '#5ab8ff';
+    const x = ox + Math.min(b[0], b[2]) * vw, y = oy + Math.min(b[1], b[3]) * vh, w = Math.abs(b[2] - b[0]) * vw, h = Math.abs(b[3] - b[1]) * vh;
+    g.lineWidth = 3; g.strokeStyle = c; g.setLineDash([8, 5]); g.strokeRect(x, y, w, h); g.setLineDash([]);
+    g.fillStyle = c; g.fillRect(x, y - 20, 24, 20); g.fillStyle = '#111'; g.font = '700 13px Inter, sans-serif'; g.fillText(String(n + 1), x + 8, y - 5);
+  });
+}
+window.addEventListener('resize', drawOverlay); video.addEventListener('loadedmetadata', drawOverlay);
+$('boxes').addEventListener('change', drawOverlay);
+
+/* ── phone as a wireless camera (WebRTC via PeerJS) ──
+   Laptop: makes a peer, shows a QR code with this page's online address + ?cam=<peer id>.
+   Phone: opens that link, sends its camera as a video call, and answers "snapshot" requests
+   with full-resolution JPEGs so the AI sees more detail than the compressed video stream. */
+const PEER_LIB = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js', QR_LIB = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+let peer = null, phoneConn = null, phoneCall = null, phoneSource = false;
+function loadLib(src, glob){
+  if (window[glob]) return Promise.resolve();
+  return new Promise((ok, bad) => { const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = () => bad(new Error('Could not download a needed library. Check the internet connection.')); document.head.appendChild(sc); });
+}
+function peerOpts(){ // optional self-hosted signalling server: ?peerHost=…&peerPort=…
+  const q = new URLSearchParams(location.search), h = q.get('peerHost');
+  return h ? {host: h, port: +(q.get('peerPort') || 9000), path: q.get('peerPath') || '/', secure: q.get('peerSecure') === '1'} : {};
+}
+function peerParams(){ const q = new URLSearchParams(location.search), o = new URLSearchParams(); ['peerHost','peerPort','peerPath','peerSecure'].forEach(k => q.get(k) && o.set(k, q.get(k))); return o.toString(); }
+const onlineUrl = () => location.protocol === 'https:' ? location.origin + location.pathname : (LS.get('onlineUrl') || '').trim();
+const pstat = t => $('pstat').textContent = t;
+
+async function openPhone(){
+  $('phoneModal').style.display = 'grid'; pstat('Starting…');
+  if (!onlineUrl()){ $('needUrl').style.display = ''; $('qrBox').style.display = 'none'; }
+  try { await Promise.all([loadLib(PEER_LIB, 'Peer'), loadLib(QR_LIB, 'qrcode')]); } catch(e){ pstat(e.message); return; }
+  if (!peer || peer.destroyed){
+    peer = new Peer('wil-' + Math.random().toString(36).slice(2, 10), peerOpts());
+    peer.on('open', showQR);
+    peer.on('disconnected', () => { if (!peer.destroyed) peer.reconnect(); });
+    peer.on('error', e => pstat('Connection problem: ' + (e.type || e.message)));
+    peer.on('call', call => {
+      phoneCall?.close(); phoneCall = call; call.answer();
+      call.on('stream', s => { if (stream && !phoneSource) stream.getTracks().forEach(t => t.stop()); useStream(s, 'phone'); $('phoneModal').style.display = 'none'; refThumb = null; drawOverlay(); });
+      call.on('close', phoneGone);
+    });
+    peer.on('connection', c => { phoneConn = c; c.on('data', onPhoneData); c.on('close', phoneGone); pstat('Phone found, waiting for its video…'); });
+  } else if (peer.open) showQR(peer.id);
+}
+function showQR(id){
+  const url = onlineUrl();
+  $('needUrl').style.display = url ? 'none' : ''; $('qrBox').style.display = url ? '' : 'none';
+  if (!url){ pstat('Add the online address to make the QR code.'); return; }
+  const link = url + (url.includes('?') ? '&' : '?') + 'cam=' + encodeURIComponent(id) + (peerParams() ? '&' + peerParams() : '');
+  const qr = qrcode(0, 'M'); qr.addData(link); qr.make();
+  $('qr').innerHTML = qr.createSvgTag({cellSize: 4, margin: 2, scalable: true}); $('qrLink').textContent = link;
+  pstat('Waiting for your phone to scan…');
+}
+function phoneGone(){
+  if (!phoneSource) return;
+  phoneSource = false; phoneCall = null; live = false;
+  if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; video.srcObject = null;
+  $('empty').style.display = ''; $('camBtn').textContent = 'Start camera'; setPill(); updateButtons(); drawOverlay();
+  showErr('The phone disconnected. Press 📱 Use phone camera to connect again.');
+}
+const snapWait = new Map();
+function onPhoneData(d){
+  if (d && d.type === 'snap' && snapWait.has(d.id)){ snapWait.get(d.id)(d.buf); snapWait.delete(d.id); }
+}
+/* The frame sent to the AI: a full-resolution still from the phone if one is connected, otherwise the video frame. */
+async function getFrame(){
+  const max = prov() === 'ollama' ? 896 : 1600;
+  if (phoneSource && phoneConn?.open){
+    try {
+      const buf = await new Promise((ok, bad) => { const id = Math.random().toString(36).slice(2); snapWait.set(id, ok); phoneConn.send({type: 'snapReq', id, max}); setTimeout(() => { snapWait.delete(id); bad(); }, 3500); });
+      return await new Promise(ok => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.readAsDataURL(new Blob([buf], {type: 'image/jpeg'})); });
+    } catch(e){ /* slow phone: fall back to the video frame */ }
+  }
+  return frameJpeg(Math.min(max, 1280));
+}
+function tellPhone(r){
+  if (!phoneConn?.open) return;
+  const pending = [...parts.values()].filter(p => p.status === 'pending').length;
+  try { phoneConn.send({type: 'verdict', v: r.verdict, title: VT[r.verdict] || '', summary: r.summary || '', critical: (r.issues || []).filter(i => i.severity === 'critical').map(i => i.title), pending}); } catch(e){}
+}
+$('phoneBtn').onclick = openPhone;
+$('phoneCancel').onclick = () => $('phoneModal').style.display = 'none';
+$('saveUrl').onclick = () => { let u = $('onlineUrl').value.trim(); if (!/^https:\/\//.test(u)){ pstat('The address must start with https://'); return; } LS.set('onlineUrl', u); $('needUrl').style.display = 'none'; if (peer?.open) showQR(peer.id); else pstat('Saved. Connecting…'); };
+$('camBtn').onclick = () => stream ? stopCam() : startCam();
+
+/* ── errors ── */
+function showErr(m){ let el = $('errBox'); if (!el){ el = document.createElement('div'); el.id = 'errBox'; el.className = 'err'; $('report').before(el); } el.textContent = m; }
+function clearErr(){ $('errBox')?.remove(); }
+loadProvider(true); listCams(); renderParts();
+</script>
+<script>
+/* ── PHONE MODE: this page was opened from the QR code (?cam=<laptop id>) ── */
+(() => {
+  const LAPTOP = new URLSearchParams(location.search).get('cam'); if (!LAPTOP) return;
+  document.body.classList.add('phone-mode');
+  const v = $('pVideo'), pill = $('pPill');
+  let ps = null, pp = null, call = null, conn = null, facing = 'environment', torch = false, wake = null;
+  const setPill2 = (t, on) => { pill.className = 'pill' + (on ? ' live' : ''); pill.querySelector('span').textContent = t; };
+  const show = (id, on) => $(id).style.display = on ? '' : 'none';
+  async function getCam(){
+    return navigator.mediaDevices.getUserMedia({audio: false, video: {facingMode: {ideal: facing}, width: {ideal: 1920}, height: {ideal: 1080}}});
+  }
+  async function start(){
+    if (!navigator.mediaDevices?.getUserMedia){ $('pMsg').innerHTML = '<div><b>Camera not available</b>Open this link in Chrome or Safari, and make sure the address starts with https://</div>'; return; }
+    try { ps = await getCam(); } catch(e){ $('pMsg').innerHTML = `<div><b>Camera blocked</b>${e.name === 'NotAllowedError' ? 'Allow camera access for this site in your browser settings, then reload.' : esc(e.message)}</div>`; return; }
+    v.srcObject = ps; show('pMsg', false); show('pStart', false); ['pFlip','pStop'].forEach(i => show(i, true));
+    show('pLight', !!ps.getVideoTracks()[0].getCapabilities?.().torch);
+    try { wake = await navigator.wakeLock?.request('screen'); } catch(e){}
+    setPill2('Connecting to laptop…');
+    try { await loadLib(PEER_LIB, 'Peer'); } catch(e){ setPill2(e.message); return; }
+    pp = new Peer(peerOpts());
+    pp.on('error', e => setPill2(e.type === 'peer-unavailable' ? 'Laptop page not found. Reopen the QR code on the laptop and scan again.' : 'Connection problem: ' + (e.type || e.message)));
+    pp.on('open', () => {
+      conn = pp.connect(LAPTOP, {reliable: true});
+      conn.on('open', () => { call = pp.call(LAPTOP, ps); call.on('close', ended); setPill2('Connected · sending to laptop', true); boostQuality(); });
+      conn.on('data', onData); conn.on('close', ended);
+    });
+  }
+  function boostQuality(){ // ask WebRTC for a sharper stream than its default
+    const pc = call?.peerConnection; if (!pc) return setTimeout(boostQuality, 300);
+    pc.getSenders().filter(s => s.track?.kind === 'video').forEach(s => { const p = s.getParameters(); p.encodings = p.encodings?.length ? p.encodings : [{}]; p.encodings[0].maxBitrate = 4_000_000; p.degradationPreference = 'maintain-resolution'; s.setParameters(p).catch(() => {}); });
+  }
+  async function onData(d){
+    if (!d) return;
+    if (d.type === 'snapReq'){
+      const w = v.videoWidth, h = v.videoHeight, k = Math.min(1, (d.max || 1600) / Math.max(w, h)), c = document.createElement('canvas');
+      c.width = Math.round(w * k); c.height = Math.round(h * k); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+      c.toBlob(async b => conn.send({type: 'snap', id: d.id, buf: await b.arrayBuffer()}), 'image/jpeg', 0.85);
+    } else if (d.type === 'verdict'){
+      const col = {ok: '#3ddc97', warning: '#f5b942', danger: '#ff6161', unclear: '#5ab8ff'}[d.v] || '#5ab8ff', el = $('pVerdict');
+      el.style.display = 'block'; el.style.borderColor = col;
+      el.innerHTML = `<b style="color:${col}">${esc(d.title)}</b>${esc(d.summary)}${d.critical.length ? `<div style="color:#ff9b9b;margin-top:4px">⚠ ${d.critical.map(esc).join(' · ')}</div>` : ''}${d.pending ? `<div class="note" style="margin-top:4px">${d.pending} part${d.pending > 1 ? 's' : ''} to confirm on the laptop</div>` : ''}`;
+      if (d.v === 'danger') navigator.vibrate?.([300, 120, 300]);
+    } else if (d.type === 'bye') ended();
+  }
+  function ended(){ setPill2('Disconnected. Scan the QR code again to reconnect.'); try { call?.close(); } catch(e){} }
+  $('pStart').onclick = start;
+  $('pFlip').onclick = async () => {
+    facing = facing === 'environment' ? 'user' : 'environment';
+    const old = ps; ps = await getCam(); v.srcObject = ps;
+    const t = ps.getVideoTracks()[0]; call?.peerConnection?.getSenders().find(s => s.track?.kind === 'video')?.replaceTrack(t);
+    old.getTracks().forEach(x => x.stop()); show('pLight', !!t.getCapabilities?.().torch); torch = false;
+  };
+  $('pLight').onclick = async () => { torch = !torch; try { await ps.getVideoTracks()[0].applyConstraints({advanced: [{torch}]}); } catch(e){} };
+  $('pStop').onclick = () => { try { conn?.send({type: 'bye'}); } catch(e){} call?.close(); ps?.getTracks().forEach(t => t.stop()); wake?.release?.(); setPill2('Stopped'); show('pStart', true); ['pFlip','pStop','pLight'].forEach(i => show(i, false)); };
+  document.addEventListener('visibilitychange', async () => { if (document.visibilityState === 'visible' && ps) { try { wake = await navigator.wakeLock?.request('screen'); } catch(e){} } });
+})();
+</script>
+</body>
+</html>
