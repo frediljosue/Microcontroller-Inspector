@@ -460,10 +460,13 @@ async function runCheck(kind){
         : zero ? `This model has no free quota on your key. Change Model to another one (try <b>gemini-3.5-flash-lite</b>), or press <b>List</b> to see your options.`
         : perDay ? 'You have used today\'s free requests for this model. Switch to another model or service, or wait until tomorrow.'
         : 'Too many requests per minute for the free tier. Set "Check at most every" to 10 s or 20 s.';
-      const list = P().models, at = list.indexOf($('model').value.trim());
-      if ((zero || perDay) && at >= 0 && at < list.length - 1){        // auto-switch to the next free model
-        const next = list[at + 1]; $('model').value = next; LS.set('model.' + id, next); lastCheck = performance.now() - 1e9; limitHits = 0;
-        showErr(`${zero ? 'No free quota' : 'Daily free limit reached'} on ${list[at]}. Switched to <b>${next}</b> and trying again.`, `${e.status} · ${said}`);
+      const list = P().models, at = list.indexOf($('model').value.trim()), busy = e.status !== 429;
+      // auto-switch: out of quota -> next model down the list; overloaded -> try the next model, wrapping around once
+      const next = at < 0 || list.length < 2 ? null : (zero || perDay) ? list[at + 1] : busy && limitHits <= list.length - 1 ? list[(at + 1) % list.length] : null;
+      if (next){
+        $('model').value = next; LS.set('model.' + id, next); if (!busy) limitHits = 0;
+        lastCheck = performance.now() - (+$('every').value * 1000) + 1500;   // retry in about 1.5 s
+        showErr(`${busy ? `${list[at]} is overloaded right now` : zero ? `No free quota on ${list[at]}` : `Daily free limit reached on ${list[at]}`}. Switched to <b>${next}</b> and trying again.`, `${e.status} · ${said}`);
       } else showErr(`${why} Retrying in ${wait} s.`, `${e.status} · ${said}`);
     }
     else if (e.status === 404) showErr(`Model "${$('model').value}" was not found. Press List and pick one from your account.`);
