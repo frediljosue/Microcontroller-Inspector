@@ -1,0 +1,40 @@
+name: 🐞 Bug report
+description: Something isn't working
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "⚠️ **Hide your API key** in any screenshot before posting."
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: said
+    attributes:
+      label: Error message
+      description: Copy the red error box, including the text under **What the service said**.
+      render: text
+  - type: dropdown
+    id: service
+    attributes:
+      label: AI service
+      options: [Google Gemini, Groq, Ollama, Other OpenAI-compatible, Anthropic Claude]
+  - type: dropdown
+    id: camera
+    attributes:
+      label: Camera
+      options: [Laptop webcam, USB webcam, Phone camera over the QR code]
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      placeholder: "e.g. Chrome 142 on Windows 11 laptop, Safari on iPhone 15"
+  - type: textarea
+    id: shots
+    attributes:
+      label: Screenshots
+      description: Drag images here. Hide your API key.

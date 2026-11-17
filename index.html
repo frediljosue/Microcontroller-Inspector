@@ -128,6 +128,7 @@ body.phone-mode #phoneUI{display:block;position:fixed;inset:0;background:#000}
   <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3ddc97" stroke-width="1.8" stroke-linecap="round"><path d="M3 7h3l2-3h8l2 3h3v13H3z"/><circle cx="12" cy="13" r="4"/></svg>
   <div><h1>Wiring Inspector · Live</h1><small>Your webcam watches the build, and an AI checks it whenever something changes. Free options included.</small></div>
   <span class="sp"></span>
+  <a class="pill" href="https://github.com/frediljosue/Microcontroller-detector#readme" target="_blank" rel="noopener" style="text-decoration:none" title="Instructions, troubleshooting and source code">? Help</a>
   <span class="pill" id="pill"><i></i><span>Camera off</span></span>
 </header>
 
@@ -466,6 +467,7 @@ async function runCheck(kind){
       if (next){
         $('model').value = next; LS.set('model.' + id, next); if (!busy) limitHits = 0;
         lastCheck = performance.now() - (+$('every').value * 1000) + 1500;   // retry in about 1.5 s
+        if (!live) setTimeout(() => runCheck('retry'), 1500);              // a manual check retries too
         showErr(`${busy ? `${list[at]} is overloaded right now` : zero ? `No free quota on ${list[at]}` : `Daily free limit reached on ${list[at]}`}. Switched to <b>${next}</b> and trying again.`, `${e.status} · ${said}`);
       } else showErr(`${why} Retrying in ${wait} s.`, `${e.status} · ${said}`);
     }
@@ -594,7 +596,7 @@ function drawOverlay(){
   if (!stream || !video.videoWidth) return;
   const k = Math.min(r.width / video.videoWidth, r.height / video.videoHeight), vw = video.videoWidth * k, vh = video.videoHeight * k, ox = (r.width - vw) / 2, oy = (r.height - vh) / 2;
   if ($('partBoxes').checked && $('detect').checked){
-    let n = 0; g.font = '600 12px Inter, sans-serif';
+    let n = 0; const labels = []; g.font = '600 12px Inter, sans-serif';
     for (const [key, p] of parts){
       if (p.status === 'ignored') continue; n++;
       const fl = key === flashKey && performance.now() < flashUntil;
@@ -603,7 +605,16 @@ function drawOverlay(){
       const c = p.status === 'pending' ? '#ffd84d' : p.status === 'you' ? '#3ddc97' : '#5ad1e6';
       g.lineWidth = fl ? 4 : 1.5; g.strokeStyle = c; g.setLineDash(p.status === 'pending' ? [4, 4] : []); g.strokeRect(x, y, w, h); g.setLineDash([]);
       const label = `P${n} ${p.name}${p.status === 'pending' ? ' ?' : ''}`, tw = Math.min(g.measureText(label).width + 10, Math.max(60, w + 40));
-      g.fillStyle = c; g.fillRect(x, y + h, tw, 18); g.fillStyle = '#081210'; g.save(); g.beginPath(); g.rect(x, y + h, tw, 18); g.clip(); g.fillText(label, x + 5, y + h + 13); g.restore();
+      labels.push({label, c, x, y: y + h, tw});
+    }
+    // labels last, nudged down (or up at the bottom edge) so they never cover each other
+    const placed = [], hit = (a, b) => a.x < b.x + b.tw && b.x < a.x + a.tw && a.y < b.y + 18 && b.y < a.y + 18;
+    for (const L of labels){
+      L.x = Math.max(ox, Math.min(L.x, ox + vw - L.tw)); let tries = 0;
+      while (placed.some(P => hit(L, P)) && tries++ < 8) L.y += 19;
+      if (L.y + 18 > oy + vh) L.y = oy + vh - 18 - 19 * placed.filter(P => Math.abs(P.y - (oy + vh - 18)) < 19 * 8 && hit({...L, y: P.y}, P)).length;
+      placed.push(L);
+      g.fillStyle = L.c; g.fillRect(L.x, L.y, L.tw, 18); g.fillStyle = '#081210'; g.save(); g.beginPath(); g.rect(L.x, L.y, L.tw, 18); g.clip(); g.fillText(L.label, L.x + 5, L.y + 13); g.restore();
     }
   }
   if (!current || !$('boxes').checked) return;

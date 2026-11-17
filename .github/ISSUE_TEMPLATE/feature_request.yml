@@ -1,0 +1,15 @@
+name: 💡 Feature idea
+description: Suggest something new
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like it to do?
+      description: Describe the situation, like "when I wire a motor driver, I wish it would…"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why would it help?

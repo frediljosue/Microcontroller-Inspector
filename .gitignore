@@ -1,0 +1,9 @@
+# test dependencies and caches
+tests/node_modules/
+__pycache__/
+.pytest_cache/
+test-results/
+*.pyc
+# never commit secrets
+.env
+*.key

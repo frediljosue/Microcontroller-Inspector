@@ -1,0 +1,11 @@
+{
+  "name": "wiring-inspector-tests",
+  "private": true,
+  "description": "Local copies of the browser libraries plus a PeerJS signalling server, so the tests run fully offline.",
+  "scripts": { "peer-server": "node peer-server.js" },
+  "devDependencies": {
+    "peer": "1.0.2",
+    "peerjs": "1.5.5",
+    "qrcode-generator": "1.4.4"
+  }
+}
